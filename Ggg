@@ -1,0 +1,48 @@
+# 1. Создать изолированное сетевое пространство test_ns
+sudo ip netns add test_ns
+
+# 2. Создать veth-пару
+sudo ip link add veth_main type veth peer name veth_ns
+
+# 3. Переместить veth_ns в test_ns, назначить IP и поднять
+sudo ip link set veth_ns netns test_ns
+sudo ip netns exec test_ns ip addr add 10.99.0.2/24 dev veth_ns
+sudo ip netns exec test_ns ip link set veth_ns up
+sudo ip netns exec test_ns ip link set lo up   # на всякий случай
+
+# 4. Настроить veth_main в корневом пространстве
+sudo ip addr add 10.99.0.1/24 dev veth_main
+sudo ip link set veth_main up
+
+# Проверка связности
+ping -c 3 10.99.0.2
+
+# 5. Запустить HTTP-сервер в test_ns (порт 8080)
+# В отдельной вкладке терминала оставить работать:
+sudo ip netns exec test_ns python3 -m http.server 8080
+
+# 6. Запустить захват трафика на veth_main
+sudo tcpdump -i veth_main -w veth_capture.pcap &
+TCPDUMP_PID=$!
+sleep 2   # дать tcpdump запуститься
+
+# 7. Добавить задержку 200ms и потери 15% на veth_main
+sudo tc qdisc add dev veth_main root netem delay 200ms loss 15%
+
+# 8. Выполнить HTTP-запрос для скачивания файла >5MB
+# Используем curl с ограничением скорости или большой файл
+# Например, сгенерируем 5MB файл на лету (если сервер позволяет)
+# Альтернативно, скачаем внешний файл (сервер должен быть доступен из netns)
+# Но сервер запущен только в test_ns, поэтому используем wget/curl внутри корневого пространства к 10.99.0.2:8080
+# Создадим большой файл заранее:
+dd if=/dev/zero of=bigfile bs=1M count=6 status=progress
+# Теперь скачаем его с сервера:
+curl -o /dev/null http://10.99.0.2:8080/bigfile
+
+# 9. Остановить захват, удалить правила и netns
+sudo kill $TCPDUMP_PID
+sudo tc qdisc del dev veth_main root
+sudo ip netns del test_ns
+# Удалить veth-пару (достаточно удалить одну сторону)
+sudo ip link del veth_main
+
