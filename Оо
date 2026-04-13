@@ -1,0 +1,76 @@
+Вот полный набор команд для быстрого выполнения Части 5.
+
+🚀 Быстрое выполнение Части 5
+
+На хосте c7-1 (подготовка SSH-сервера)
+
+```bash
+# Убедимся, что SSH-сервер установлен и запущен
+sudo apt install -y openssh-server
+sudo systemctl enable ssh --now
+```
+
+На хосте c7-2 (генерация нескольких SSH-соединений)
+
+```bash
+# Установим sshpass (пароль нужен от пользователя на c7-1)
+sudo apt install -y sshpass
+
+# Запустим 5 фоновых SSH-сессий к c7-1 (пароль замените на реальный)
+for i in {1..5}; do sshpass -p 'ваш_пароль' ssh -o StrictHostKeyChecking=no user@192.168.100.13 sleep 300 & done
+```
+
+На хосте c7-1 (просмотр портов и соединений)
+
+2. Активные прослушиваемые порты:
+
+```bash
+sudo netstat -tlnp   # только TCP listen
+# или
+sudo ss -tlnp
+```
+
+3. Все установленные соединения:
+
+```bash
+sudo netstat -tn     # TCP соединения
+# или
+sudo ss -tn state established
+```
+
+4. Скрипт для подсчёта подключений по порту (по умолчанию 22):
+
+```bash
+cat << 'EOF' > count_ssh.sh
+#!/bin/bash
+PORT=${1:-22}
+ss -tn state established "( sport = :$PORT or dport = :$PORT )" | \
+awk 'NR>1 {print $5}' | cut -d: -f1 | sort | uniq -c | sort -nr
+EOF
+
+chmod +x count_ssh.sh
+./count_ssh.sh 22   # запуск для порта 22
+```
+
+5. Закрыть все SSH-соединения:
+
+```bash
+# На c7-1 найти PID процессов sshd для сессий и завершить
+sudo pkill -f "sshd: user@pts/"
+# или просто перезапустить службу
+sudo systemctl restart ssh
+```
+
+6. Знакомство с nethogs (просмотр трафика по процессам):
+
+```bash
+sudo nethogs         # интерактивный режим, выход: Q
+# ключи: -d задержка, -t режим трассировки, -v 3 подробности
+```
+
+📝 Краткие пояснения для отчёта
+
+· netstat -tlnp показывает PID/имя программы, слушающей порт.
+· ss -tn state established — быстрый аналог netstat для установленных соединений.
+· Скрипт использует ss для фильтрации по порту, извлекает IP-адреса из колонки Peer Address:Port, считает уникальные и сортирует по убыванию.
+· nethogs удобен для мониторинга потребления трафика конкретными приложениями в реальном времени.
