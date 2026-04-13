@@ -1,0 +1,13 @@
+2/2
+
+vm1user@VM-1:~$ ping -c 5 -i 10 -s 1500 192.168.100.12
+PING 192.168.100.12 (192.168.100.12) 1500(1528) bytes of data.
+1508 bytes from 192.168.100.12: icmp_seq=1 ttl=64 time=2.98 ms
+1508 bytes from 192.168.100.12: icmp_seq=2 ttl=64 time=0.879 ms
+1508 bytes from 192.168.100.12: icmp_seq=3 ttl=64 time=1.08 ms
+1508 bytes from 192.168.100.12: icmp_seq=4 ttl=64 time=0.979 ms
+1508 bytes from 192.168.100.12: icmp_seq=5 ttl=64 time=1.03 ms
+
+--- 192.168.100.12 ping statistics ---
+5 packets transmitted, 5 received, 0% packet loss, time 40406ms
+rtt min/avg/max/mdev = 0.879/1.388/2.979/0.797 ms
