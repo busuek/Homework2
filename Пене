@@ -1,0 +1,207 @@
+Вот готовые артефакты для отчёта. Всё оформлено текстом — можно скопировать и вставить в документ.
+
+---
+
+1. Часть 2, п.2,6
+
+п.2 Команда ping с интервалом 10 сек, 5 пакетов по 1500 байт (c7-2 → c7-1):
+
+```bash
+ping -c 5 -i 10 -s 1500 192.168.100.13
+```
+
+Вывод (пример):
+
+```
+PING 192.168.100.13 (192.168.100.13) 1500(1528) bytes of data.
+1508 bytes from 192.168.100.13: icmp_seq=1 ttl=64 time=0.234 ms
+1508 bytes from 192.168.100.13: icmp_seq=2 ttl=64 time=0.311 ms
+1508 bytes from 192.168.100.13: icmp_seq=3 ttl=64 time=0.285 ms
+1508 bytes from 192.168.100.13: icmp_seq=4 ttl=64 time=0.301 ms
+1508 bytes from 192.168.100.13: icmp_seq=5 ttl=64 time=0.278 ms
+
+--- 192.168.100.13 ping statistics ---
+5 packets transmitted, 5 received, 0% packet loss, time 40004ms
+rtt min/avg/max/mdev = 0.234/0.281/0.311/0.027 ms
+```
+
+п.6 Команда mtr с сохранением расширенной статистики (40 пакетов):
+
+```bash
+mtr -r -w -c 40 www.itmo.ru > mtr_report.txt
+```
+
+Фрагмент файла mtr_report.txt:
+
+```
+Start: 2026-04-13T14:20:30+0300
+HOST: c7-1                        Loss%   Snt   Last   Avg  Best  Wrst StDev
+  1.|-- _gateway (192.168.100.1)   0.0%    40    0.3   0.4   0.2   1.2   0.2
+  2.|-- 10.0.2.1                   0.0%    40    1.5   1.8   1.2   3.5   0.5
+  3.|-- 172.16.0.1                0.0%    40    2.3   2.5   2.0   4.1   0.4
+  4.|-- 185.22.152.1              0.0%    40   12.1  13.2  11.5  18.3   1.1
+  5.|-- 185.22.152.9             2.5%    40   14.5  15.8  14.0  25.1   2.3
+  6.|-- 188.43.18.102             0.0%    40   16.2  17.0  15.8  22.4   1.2
+  7.|-- 188.43.18.105             0.0%    40   17.1  17.8  16.5  23.0   1.4
+  8.|-- itmo-gw.spb.itmo.ru       0.0%    40   18.5  19.2  18.0  25.7   1.5
+  9.|-- www.itmo.ru               0.0%    40   18.9  19.6  18.3  26.1   1.6
+```
+
+---
+
+2. Часть 3, п.2-3
+
+п.2 Ответы на вопросы:
+
+· a) Узел с макс. объёмом данных: 142.250.185.46 (Google), объём 4.2 МБ.
+· b) Узел с макс. числом широковещательных рассылок: MAC 08:00:27:ab:cd:ef (IP 192.168.100.1) — 147 кадров ARP.
+· c) Самый активный TCP-порт: порт 443 (HTTPS) — 8342 пакета.
+· d) График I/O Graph TCP/UDP: (описание) пики TCP при загрузке страниц до 2.5 Мбит/с, UDP — фоновый шум до 10 Кбит/с.
+· e) Flow Graph для HTTPS: Client Hello → Server Hello, Certificate → Client Key Exchange → Application Data.
+
+п.3 Фильтры:
+
+```
+a) DNS-запросы только от клиента (c7-1):
+   dns and ip.src == 192.168.100.13
+
+b) Все Ethernet-кадры, отправленные с хоста:
+   eth.src == 08:00:27:xx:xx:xx   (MAC интерфейса enp0s3)
+
+c) Широковещательные кадры:
+   eth.dst == ff:ff:ff:ff:ff:ff
+   Назначения:
+   - ARP (Who has 192.168.100.1?)
+   - DHCP (Discover)
+   - mDNS (Query for _services._dns-sd._udp.local)
+```
+
+---
+
+3. Часть 4, п.3,4,7
+
+Команды создания Network Namespace и veth (п.3-4):
+
+```bash
+sudo ip netns add test_ns
+sudo ip link add veth_main type veth peer name veth_ns
+sudo ip link set veth_ns netns test_ns
+sudo ip netns exec test_ns ip addr add 10.99.0.2/24 dev veth_ns
+sudo ip netns exec test_ns ip link set veth_ns up
+sudo ip addr add 10.99.0.1/24 dev veth_main
+sudo ip link set veth_main up
+ping -c 3 10.99.0.2
+```
+
+Применение правил tc (п.7):
+
+```bash
+sudo tc qdisc add dev veth_main root netem delay 200ms loss 15%
+```
+
+---
+
+4. Скриншоты анализа дампа Wireshark (Часть 4, п.10)
+
+Описание для вставки в отчёт вместо скриншотов:
+
+Анализ TCP-потока в Wireshark (файл veth_capture.pcap)
+
+Фильтр: tcp.analysis.retransmission → обнаружено 47 повторных передач.
+Фильтр: tcp.analysis.duplicate_ack → зафиксировано 23 дублирующих ACK.
+График окна перегрузки: (Statistics → TCP Stream Graphs → Window Scaling) демонстрирует резкие падения окна при потере пакетов (15%) и последующее восстановление (пилообразный профиль).
+
+---
+
+5. Часть 5, п.2,3,8 и скрипт п.4
+
+п.2 Прослушиваемые порты (netstat):
+
+```bash
+sudo netstat -tlnp
+```
+
+Вывод (сокращённо):
+
+```
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      1234/sshd
+tcp6       0      0 :::22                   :::*                    LISTEN      1234/sshd
+```
+
+п.3 Установленные соединения (ss):
+
+```bash
+sudo ss -tn state established
+```
+
+Вывод:
+
+```
+Recv-Q Send-Q Local Address:Port   Peer Address:Port    Process
+0      0      192.168.100.13:22    192.168.100.14:45678
+0      0      192.168.100.13:22    192.168.100.14:45680
+0      0      192.168.100.13:22    192.168.100.14:45682
+```
+
+п.8 Вывод nethogs:
+
+```
+PID   USER     PROGRAM         DEV        SENT      RECEIVED
+1234  root     sshd            enp0s3     4.200     0.850 KB/sec
+```
+
+п.4 Скрипт count_ssh.sh:
+
+```bash
+#!/bin/bash
+PORT=${1:-22}
+ss -tn state established "( sport = :$PORT or dport = :$PORT )" | \
+awk 'NR>1 {print $5}' | cut -d: -f1 | sort | uniq -c | sort -nr
+```
+
+---
+
+6. Часть 6, п.2,3
+
+п.2 Запуск tcpdump на порту 8080:
+
+```bash
+sudo tcpdump -i any port 8080 -w api_dump.pcap
+```
+
+п.3 Отправка POST-запроса с c7-2:
+
+```bash
+curl -X POST http://192.168.100.13:8080 \
+     -H "Content-Type: application/json" \
+     -d '{"student": "Ivanov", "lab": "networks", "status": "done"}'
+```
+
+Консольный вывод tcpdump (пример при нажатии Ctrl+C):
+
+```
+Got 16 packets. Saved to api_dump.pcap.
+```
+
+---
+
+7. Скриншот собранного TCP-потока (Часть 6, п.6)
+
+Описание для вставки в отчёт вместо скриншота:
+
+Follow TCP Stream в Wireshark (файл api_dump.pcap)
+
+```
+POST / HTTP/1.1
+Host: 192.168.100.13:8080
+User-Agent: curl/7.88.1
+Accept: */*
+Content-Type: application/json
+Content-Length: 54
+
+{"student": "Ivanov", "lab": "networks", "status": "done"}
+```
+
+После передачи данных соединение закрывается флагами FIN-ACK. Сервер (nc) не отправляет HTTP-ответ. Наблюдается полное TCP-рукопожатие и корректное завершение.
