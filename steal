@@ -1,0 +1,119 @@
+#!/bin/bash
+echo "=== Часть 6. Инспекция полезной нагрузки ==="
+echo ""
+
+# Убиваем старые процессы nc и tcpdump на всякий случай
+pkill -f "nc -l 8080" 2>/dev/null
+pkill -f "tcpdump.*port 8080" 2>/dev/null
+
+# 1. Запускаем nc в режиме прослушивания на порту 8080 в фоне
+echo "[1] Запуск nc -l 8080 (в фоне)"
+nc -l -p 8080 &
+NC_PID=$!
+sleep 1
+echo "    PID nc: $NC_PID"
+
+# 2. Запускаем tcpdump на порту 8080 с записью в файл
+echo "[2] Запуск tcpdump на порту 8080 (в фоне)"
+sudo tcpdump -i any port 8080 -w api_dump.pcap &
+TCPDUMP_PID=$!
+sleep 2
+echo "    PID tcpdump: $TCPDUMP_PID"
+echo ""
+
+# 3. Инструкция для пользователя
+echo "--------------------------------------------------"
+echo "ДЕЙСТВИЕ НА c7-2:"
+echo "Выполните на машине c7-2 команду:"
+echo ""
+echo "curl -X POST http://192.168.100.13:8080 \\"
+echo "     -H \"Content-Type: application/json\" \\"
+echo "     -d '{\"student\": \"Ivanov\", \"lab\": \"networks\", \"status\": \"done\"}'"
+echo ""
+echo "После выполнения нажмите ENTER здесь для продолжения..."
+echo "--------------------------------------------------"
+read -r
+
+# 4. Останавливаем tcpdump
+echo ""
+echo "[4] Остановка tcpdump..."
+sudo kill $TCPDUMP_PID
+sleep 1
+echo "    tcpdump остановлен."
+
+# 5. Останавливаем nc
+echo "    Остановка nc..."
+kill $NC_PID 2>/dev/null
+sleep 1
+
+# 6. Проверяем файл
+echo ""
+echo "[5] Файл api_dump.pcap создан:"
+ls -lh api_dump.pcap
+echo ""
+echo "Готово. Теперь перенесите api_dump.pcap на хост и откройте в Wireshark."
+
+
+
+
+
+__________________________________________________________________________________
+
+
+
+
+
+#!/bin/bash
+echo "=== Часть 6. Инспекция полезной нагрузки ==="
+echo ""
+
+# Убиваем старые процессы nc и tcpdump на всякий случай
+pkill -f "nc -l 8080" 2>/dev/null
+pkill -f "tcpdump.*port 8080" 2>/dev/null
+
+# 1. Запускаем nc в режиме прослушивания на порту 8080 в фоне
+echo "[1] Запуск nc -l 8080 (в фоне)"
+nc -l -p 8080 &
+NC_PID=$!
+sleep 1
+echo "    PID nc: $NC_PID"
+
+# 2. Запускаем tcpdump на порту 8080 с записью в файл
+echo "[2] Запуск tcpdump на порту 8080 (в фоне)"
+sudo tcpdump -i any port 8080 -w api_dump.pcap &
+TCPDUMP_PID=$!
+sleep 2
+echo "    PID tcpdump: $TCPDUMP_PID"
+echo ""
+
+# 3. Инструкция для пользователя
+echo "--------------------------------------------------"
+echo "ДЕЙСТВИЕ НА c7-2:"
+echo "Выполните на машине c7-2 команду:"
+echo ""
+echo "curl -X POST http://192.168.100.13:8080 \\"
+echo "     -H \"Content-Type: application/json\" \\"
+echo "     -d '{\"student\": \"Ivanov\", \"lab\": \"networks\", \"status\": \"done\"}'"
+echo ""
+echo "После выполнения нажмите ENTER здесь для продолжения..."
+echo "--------------------------------------------------"
+read -r
+
+# 4. Останавливаем tcpdump
+echo ""
+echo "[4] Остановка tcpdump..."
+sudo kill $TCPDUMP_PID
+sleep 1
+echo "    tcpdump остановлен."
+
+# 5. Останавливаем nc
+echo "    Остановка nc..."
+kill $NC_PID 2>/dev/null
+sleep 1
+
+# 6. Проверяем файл
+echo ""
+echo "[5] Файл api_dump.pcap создан:"
+ls -lh api_dump.pcap
+echo ""
+echo "Готово. Теперь перенесите api_dump.pcap на хост и откройте в Wireshark."
