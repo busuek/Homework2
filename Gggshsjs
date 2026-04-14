@@ -1,0 +1,60 @@
+#!/bin/bash
+echo "================ Часть 5. Диагностика работы приложений через сеть ================"
+echo "Хост: c7-1 ($(hostname -I | awk '{print $1}'))"
+echo ""
+
+# --- п.2 Активные прослушиваемые порты ---
+echo "--- [п.2] Активные прослушиваемые порты (netstat -tlnp) ---"
+sudo netstat -tlnp 2>/dev/null | head -10
+echo ""
+echo "--- То же через ss -tlnp ---"
+sudo ss -tlnp | head -10
+echo ""
+
+# --- п.3 Установленные соединения ---
+echo "--- [п.3] Установленные TCP-соединения (ss -tn state established) ---"
+sudo ss -tn state established
+echo ""
+
+# --- п.4 Скрипт подсчёта подключений ---
+echo "--- [п.4] Скрипт count_ssh.sh (подсчёт подключений по порту 22) ---"
+cat << 'EOF' > count_ssh.sh
+#!/bin/bash
+PORT=${1:-22}
+ss -tn state established "( sport = :$PORT or dport = :$PORT )" | \
+awk 'NR>1 {print $5}' | cut -d: -f1 | sort | uniq -c | sort -nr
+EOF
+chmod +x count_ssh.sh
+echo "Содержимое скрипта:"
+cat count_ssh.sh
+echo ""
+echo "Пример выполнения для порта 22:"
+./count_ssh.sh 22
+echo ""
+
+# --- п.6 Ключи nethogs ---
+echo "--- [п.6] Знакомство с ключами утилиты nethogs ---"
+if command -v nethogs &> /dev/null; then
+    echo "Запуск 'sudo nethogs -d 1 -c 3' (3 обновления):"
+    sudo timeout 4 nethogs -d 1 -c 3 2>/dev/null || echo "nethogs завершился."
+else
+    echo "nethogs не установлен. Для имитации вывода смотрите ниже."
+    echo "Основные ключи: -d <сек> (интервал), -c <число> (кол-во обновлений), -t (трассировка), -v (подробность)."
+fi
+echo ""
+
+# --- п.7-8 Инструкция для ручного выполнения и пример вывода nethogs ---
+echo "--- [п.7-8] SSH и nethogs (имитация вывода) ---"
+echo "На c7-2: ssh user@192.168.100.13, затем запустить top."
+echo "На c7-1: sudo nethogs"
+echo "Ожидаемый результат в строке sshd:"
+echo "PID   USER     PROGRAM         DEV        SENT      RECEIVED"
+echo "1234  root     sshd            enp0s3     4.200     0.850 KB/sec"
+echo ""
+
+# --- п.5 Закрытие SSH-сессий (опционально) ---
+echo "--- [п.5] Закрытие всех SSH-соединений (команда для справки) ---"
+echo "sudo pkill -f 'sshd: user@'"
+echo ""
+
+echo "================ Скрипт завершён ================"
